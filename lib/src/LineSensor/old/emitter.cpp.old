@@ -1,0 +1,213 @@
+#include "Emitter.hpp"
+#include <Arduino.h>
+
+unsigned char Emitter::getNumDimmingLevels() const{
+  return getMaximumDimmingLevel()-getMinimumDimmingLevel()+1;
+}
+
+
+unsigned char Emitter::calcNewDimmingLevel(unsigned char _dimming_level, unsigned char _increment){
+  _increment += _dimming_level-getMinimumDimmingLevel();
+  _increment %= getNumDimmingLevels();
+  return _increment + getMinimumDimmingLevel();
+}
+
+
+unsigned char Emitter::calcIncrementRequired(unsigned char _dimming_level, unsigned char _desired_dimming_level){
+  return (_desired_dimming_level < _dimming_level) ? (getNumDimmingLevels() + _desired_dimming_level - _dimming_level) : (_desired_dimming_level - _dimming_level);
+}
+
+
+void Emitter::init(){
+  setAsOutput();
+  turnOff();
+}
+
+
+void Emitter::turnOff(){
+  setLow();
+  delayMicroseconds(getTurnOffTime());
+  setStoredDimmingLevel(getMaximumDimmingLevel());
+}
+
+
+void Emitter::turnOn(){
+  setHigh();
+  delayMicroseconds(getPulseTime());
+  setStoredDimmingLevel(getMinimumDimmingLevel());
+}
+
+
+void Emitter::incrementDimmingLevel(unsigned char _increment){
+  for(unsigned char i=0; i<_increment; ++i){
+    setLow();
+    delayMicroseconds(getPulseTime());
+    setHigh();
+  }
+  incrementStoredDimmingLevel(_increment);
+}
+
+
+
+
+Single_Emitter::Single_Emitter(unsigned char _emitter_pin):
+emitter_pin(_emitter_pin), dimming_level(0) {}
+
+
+void Single_Emitter::setAsOutput() const { pinMode(emitter_pin,OUTPUT);}
+void Single_Emitter::setLow() const {digitalWrite(emitter_pin, LOW);}
+void Single_Emitter::setHigh() const {digitalWrite(emitter_pin, HIGH);}
+
+
+unsigned char Single_Emitter::getDimmingLevel() const{ return dimming_level;}
+void Single_Emitter::setStoredDimmingLevel(unsigned char _dimming_level){ dimming_level = _dimming_level;}
+
+
+void Single_Emitter::incrementStoredDimmingLevel(unsigned char _increment){
+  dimming_level = calcNewDimmingLevel(dimming_level, _increment);
+}
+
+
+void Single_Emitter::setDimmingLevel(unsigned char _dimming_level){
+  incrementDimmingLevel(calcIncrementRequired(dimming_level,_dimming_level));
+}
+
+
+
+
+Greedy_Emitter::Greedy_Emitter(unsigned char _emitter_pin, unsigned char _maximum_dimming_level, unsigned char _minimum_dimming_level, unsigned int _pulse_time, unsigned int _turn_off_time):
+Single_Emitter(_emitter_pin), maximum_dimming_level(_maximum_dimming_level), minimum_dimming_level(_minimum_dimming_level), pulse_time(_pulse_time), turn_off_time(_turn_off_time){}
+
+
+unsigned int Greedy_Emitter::getPulseTime() const {return pulse_time;}
+unsigned int Greedy_Emitter::getTurnOffTime() const {return turn_off_time;}
+unsigned char Greedy_Emitter::getMaximumDimmingLevel() const{return maximum_dimming_level;}
+unsigned char Greedy_Emitter::getMinimumDimmingLevel() const{return minimum_dimming_level;}
+
+
+
+
+unsigned int Dual_Emitter::Kind_Emitter::pulse_time;
+unsigned int Dual_Emitter::Kind_Emitter::turn_off_time;
+unsigned char Dual_Emitter::Kind_Emitter::maximum_dimming_level;
+unsigned char Dual_Emitter::Kind_Emitter::minimum_dimming_level;
+
+
+Dual_Emitter::Kind_Emitter::Kind_Emitter(unsigned char _emitter_pin):
+Single_Emitter(_emitter_pin){}
+
+
+Dual_Emitter::Kind_Emitter::Kind_Emitter(unsigned char _emitter_pin, unsigned char _maximum_dimming_level, unsigned char _minimum_dimming_level, unsigned int _pulse_time, unsigned int _turn_off_time):
+Single_Emitter(_emitter_pin){
+  //initializing static variables
+  maximum_dimming_level = _maximum_dimming_level;
+  minimum_dimming_level = _minimum_dimming_level;
+  pulse_time = _pulse_time;
+  turn_off_time = _turn_off_time;
+}
+
+
+unsigned int Dual_Emitter::Kind_Emitter::getPulseTime() const {return pulse_time;}
+unsigned int Dual_Emitter::Kind_Emitter::getTurnOffTime() const {return turn_off_time;}
+unsigned char Dual_Emitter::Kind_Emitter::getMaximumDimmingLevel() const {return maximum_dimming_level;}
+unsigned char Dual_Emitter::Kind_Emitter::getMinimumDimmingLevel() const {return minimum_dimming_level;}
+
+
+Dual_Emitter::Dual_Emitter(unsigned char _even_emitter_pin, unsigned char _odd_emitter_pin, unsigned char _maximum_dimming_level, unsigned char _minimum_dimming_level, unsigned int _pulse_time, unsigned int _turn_off_time ):
+even_emitter(_even_emitter_pin, _maximum_dimming_level, _minimum_dimming_level, _pulse_time, _turn_off_time), odd_emitter(_odd_emitter_pin){}
+
+
+void Dual_Emitter::setAsOutput() const{
+  even_emitter.setAsOutput();
+  odd_emitter.setAsOutput();
+}
+
+
+void Dual_Emitter::setLow() const{
+  even_emitter.setLow();
+  odd_emitter.setLow();
+}
+
+
+void Dual_Emitter::setHigh() const{
+  even_emitter.setHigh();
+  odd_emitter.setHigh();
+}
+
+
+void Dual_Emitter::setStoredDimmingLevel(unsigned char _dimming_level){
+  even_emitter.setStoredDimmingLevel(_dimming_level);
+  odd_emitter.setStoredDimmingLevel(_dimming_level);
+}
+
+
+void Dual_Emitter::incrementStoredDimmingLevel(unsigned char _dimming_level){
+  even_emitter.incrementStoredDimmingLevel(_dimming_level);
+  odd_emitter.incrementStoredDimmingLevel(_dimming_level);
+}
+
+
+unsigned int Dual_Emitter::getPulseTime() const{ return even_emitter.getPulseTime();}
+unsigned int Dual_Emitter::getTurnOffTime() const{return even_emitter.getTurnOffTime();}
+unsigned char Dual_Emitter::getMaximumDimmingLevel() const {return even_emitter.getMaximumDimmingLevel();}
+unsigned char Dual_Emitter::getMinimumDimmingLevel() const {return even_emitter.getMinimumDimmingLevel();}
+
+
+unsigned char Dual_Emitter::getDimmingLevel() const{
+  return (even_emitter.getDimmingLevel() + odd_emitter.getDimmingLevel())/2;
+}
+
+
+void Dual_Emitter::getDimmingLevels(unsigned char* out_even_dimming_level, unsigned char* out_odd_dimming_level) const {
+  *out_even_dimming_level = even_emitter.getDimmingLevel();
+  *out_odd_dimming_level = odd_emitter.getDimmingLevel();
+}
+
+
+void Dual_Emitter::setDimmingLevel(unsigned char _dimming_level){
+  unsigned char simultaneous_increment = 0;
+  unsigned char seperate_increment = 0;
+  Kind_Emitter* unmatched_emitter = nullptr;
+  simultaneous_increment = calcIncrementRequired(even_emitter.getDimmingLevel(), _dimming_level)<calcIncrementRequired(odd_emitter.getDimmingLevel(), _dimming_level)? 
+                           calcIncrementRequired(even_emitter.getDimmingLevel(), _dimming_level) : calcIncrementRequired(odd_emitter.getDimmingLevel(), _dimming_level);
+  incrementDimmingLevel(simultaneous_increment);
+  unmatched_emitter = even_emitter.getDimmingLevel()==_dimming_level? &odd_emitter : &even_emitter;
+  seperate_increment = calcIncrementRequired(unmatched_emitter->getDimmingLevel(), _dimming_level);
+  unmatched_emitter->incrementDimmingLevel(seperate_increment);
+}
+
+
+
+virtual void Dual_Emitters::init() {
+  emittera.init();
+  emitterb.init();
+  emitterc.init();
+}
+
+
+virtual void Dual_Emitters::turnOff() {
+  emittera.turnOff();
+  emitterb.turnOff();
+  emitterc.turnOff();
+}
+
+
+virtual void Dual_Emitters::turnOn() {
+  emittera.turnOn();
+  emitterb.turnOn();
+  emitterc.turnOn();
+}
+
+
+virtual void Dual_Emitters::incrementDimmingLevel(unsigned char _increment) {
+  emittera.incrementDimmingLevel(_increment);
+  emitterb.incrementDimmingLevel(_increment);
+  emitterc.incrementDimmingLevel(_increment);
+}
+
+
+virtual void Dual_Emitters::setDimmingLevel(unsigned char _dimming_level){
+  emittera.setDimmingLevel(_dimming_level);
+  emitterb.setDimmingLevel(_dimming_level);
+  emitterc.setDimmingLevel(_dimming_level);
+}
