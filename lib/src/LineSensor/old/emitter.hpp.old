@@ -1,0 +1,101 @@
+#ifndef EMITTER_HPP
+#define EMITTER_HPP
+
+class Emitter {
+  friend class Emitter_Debugger;
+  protected:
+    virtual void setStoredDimmingLevel(unsigned char _dimming_level) = 0; //GETI
+    virtual void incrementStoredDimmingLevel(unsigned char _increment) = 0; //GET
+    unsigned char calcNewDimmingLevel(unsigned char _dimming_level, unsigned char _increment); //GET
+    unsigned char calcIncrementRequired(unsigned char _dimming_level, unsigned char _desired_dimming_level); //GET
+  public:
+    virtual unsigned char getDimmingLevel() const = 0; //GETI
+    virtual unsigned int getPulseTime() const = 0; //GETI
+    virtual unsigned int getTurnOffTime() const = 0; //GETI
+    virtual unsigned char getMaximumDimmingLevel() const = 0; //GETI
+    virtual unsigned char getMinimumDimmingLevel() const = 0; //GETI
+    unsigned char getNumDimmingLevels() const; //GET
+    virtual void init() override;  //GET
+    virtual void turnOff() override; //GET
+    virtual void turnOn() override; //GET
+    virtual void incrementDimmingLevel(unsigned char _increment = 1) override; //GET
+};
+
+
+class Dual_Emitter;
+
+class Single_Emitter : public Emitter {
+  friend class Dual_Emitter;
+  friend class Emitter_Debugger;
+  private:
+    unsigned char emitter_pin;
+    unsigned char dimming_level;
+  public:
+    Single_Emitter(unsigned char _emitter_pin); //Implicitly Tested
+  protected:
+    virtual void setAsOutput() const override;
+    virtual void setLow() const override;
+    virtual void setHigh() const override;
+    virtual void setStoredDimmingLevel(unsigned char _dimming_level) override;
+    virtual void incrementStoredDimmingLevel(unsigned char _increment) override;
+  public:
+    virtual unsigned char getDimmingLevel() const override;
+    virtual void setDimmingLevel(unsigned char _dimming_level) override;
+};
+
+
+class Greedy_Emitter : public Single_Emitter{
+  private:
+    unsigned char maximum_dimming_level;
+    unsigned char minimum_dimming_level;
+    unsigned int pulse_time;
+    unsigned int turn_off_time; 
+  public:
+    Greedy_Emitter(unsigned char _emitter_pin, unsigned char _maximum_dimming_level, unsigned char _minimum_dimming_level, unsigned int _pulse_time, unsigned int _turn_off_time); //Explicitly Tested
+  public:
+    virtual unsigned int getPulseTime() const override;
+    virtual unsigned int getTurnOffTime() const override;
+    virtual unsigned char getMaximumDimmingLevel() const override;
+    virtual unsigned char getMinimumDimmingLevel() const override;
+};
+
+
+class Dual_Emitter : public Emitter {
+  friend class Emitter_Debugger;
+  private:
+    class Kind_Emitter : public Single_Emitter {
+      private:
+        static unsigned char maximum_dimming_level;
+        static unsigned char minimum_dimming_level;
+        static unsigned int pulse_time;
+        static unsigned int turn_off_time;
+      public:
+        Kind_Emitter(unsigned char _emitter_pin);
+        Kind_Emitter(unsigned char _emitter_pin, unsigned char _maximum_dimming_level, unsigned char _minimum_dimming_level, unsigned int _pulse_time, unsigned int _turn_off_time);
+      public:
+        virtual unsigned int getPulseTime() const override;
+        virtual unsigned int getTurnOffTime() const override;
+        virtual unsigned char getMaximumDimmingLevel() const override;
+        virtual unsigned char getMinimumDimmingLevel() const override;
+    };
+  public:
+    Kind_Emitter even_emitter, odd_emitter;
+  public:
+    Dual_Emitter(unsigned char _even_emitter_pin, unsigned char _odd_emitter_pin,  unsigned char _maximum_dimming_level, unsigned char _minimum_dimming_level, unsigned int _pulse_time, unsigned int _turn_off_time );
+  protected:
+    virtual void setAsOutput() const override;
+    virtual void setLow() const override;
+    virtual void setHigh() const override;
+    virtual void setStoredDimmingLevel(unsigned char _dimming_level) override;
+    virtual void incrementStoredDimmingLevel(unsigned char _increment) override;
+  public:
+    virtual unsigned int getPulseTime() const override;
+    virtual unsigned int getTurnOffTime() const override;
+    virtual unsigned char getMaximumDimmingLevel() const override;
+    virtual unsigned char getMinimumDimmingLevel() const override;
+    virtual unsigned char getDimmingLevel() const override;
+    void getDimmingLevels(unsigned char* out_even_dimming_level, unsigned char* out_odd_dimming_level) const;
+    virtual void setDimmingLevel(unsigned char _dimming_level) override;
+};
+
+#endif
